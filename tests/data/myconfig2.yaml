@@ -1,0 +1,4 @@
+parameters:
+  - intparam: -1
+  - strparam: "test_myconfig2"
+  - plist: [-1, "tryStr"]

@@ -32,8 +32,7 @@ class ConfigBase(metaclass=AbstractSingleton):
                 self.attr_2_type_dict_for_env[attr] = newtype
 
 
-        self.all_paramenters_names = all_paramenters_names  #Warning:  this variable is used in self.set, so it should be always set after self.attr_2_type_dict_for_env
-
+        self.all_paramenters_names = all_paramenters_names  #Warning:  this variable is used in self.set, so it should be always defined after self.attr_2_type_dict_for_env
         if config_file is not None:
             with open(config_file, "r") as f:
                 yaml_data = yaml.safe_load(f)
@@ -55,6 +54,12 @@ class ConfigBase(metaclass=AbstractSingleton):
     def env_to_param_name(self, envname):
         return envname.split(self.PREFIX_ENV_SEP)[-1]
 
+    @property
+    def all_parameters_dict(self):
+        param_dict = {}
+        for key in self.all_paramenters_names:
+            param_dict[key] = self.__dict__[key]
+        return param_dict
 
     @abstractmethod
     def set_parameters(self):
@@ -103,8 +108,8 @@ class ConfigBase(metaclass=AbstractSingleton):
 
 
     def __getattr__(self, key):
-        added_attrib = self.__dict__.get("all_paramenters_names", {})
-        if key in added_attrib:
+        all_paramenters_names = self.__dict__.get("all_paramenters_names", {})
+        if key in all_paramenters_names:
             return self.get(key)
         else:
             raise AttributeError(f"Error, {key} is not a valid config parameter")
@@ -115,6 +120,12 @@ class ConfigBase(metaclass=AbstractSingleton):
             self._set_in_env(key, value)
         self.__dict__[key] = value
 
+    def update(self, params_dict:dict):
+        for key, val in params_dict.items():
+            if key in self.all_paramenters_names:
+                self.set(key, val)
+            else:
+                raise ConfigErrorParamTypeMismatch(f"Error, {key} parameter in the dictionary {params_dict} is not difined in the default parameters")
 
 
 

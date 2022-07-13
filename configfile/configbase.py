@@ -10,11 +10,13 @@ from configfile.utils import AbstractSingleton
 
 
 class ConfigBase(metaclass=AbstractSingleton):
-
+    NAME = "CONFIG"
     VALID_TYPES_FOR_ENV=[bool, str, int, float]
     PREFIX_ENV_SEP = "___"
-    def __init__(self, name:str="CONFIG", config_file:Optional[str]=None, environ_vars_overwrite_conf:bool=True):
+    def __init__(self, name:str=None, config_file:Optional[str]=None, environ_vars_overwrite_conf:bool=True):
 
+        if name == None:
+            name = self.NAME
         self.name = name
         self.environ_vars_overwrite_conf = environ_vars_overwrite_conf
 

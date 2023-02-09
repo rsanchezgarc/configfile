@@ -19,3 +19,4 @@ class MyConfig2(ConfigBase):
 if __name__ == "__main__":
     conf = MyConfig2("MyConfig2")
     print(conf.intparam)
+    print(conf.strparam)

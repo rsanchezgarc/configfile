@@ -37,11 +37,12 @@ class ConfigBase(metaclass=AbstractSingleton):
             if newtype in ConfigBase.VALID_TYPES_FOR_ENV:
                 self.attr_2_type_dict_for_env[attr] = newtype
 
+        self.all_parameters_names = all_parameters_names  #Warning:  this variable is used in self.set, so it should be always defined after self.attr_2_type_dict_for_env
         if environ_vars_overwrite_conf:
             for varname in all_parameters_names:
-                delattr(self, varname)
+                self.set(varname, self.get(varname))
+                # delattr(self, varname)
 
-        self.all_parameters_names = all_parameters_names  #Warning:  this variable is used in self.set, so it should be always defined after self.attr_2_type_dict_for_env
         if config_file is not None:
             with open(config_file, "r") as f:
                 yaml_data = yaml.safe_load(f)

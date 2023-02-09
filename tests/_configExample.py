@@ -13,3 +13,9 @@ class MyConfig2(ConfigBase):
         self.intparam = 1
         self.strparam = "tua"
         self.plist = [1,2,3]
+
+
+
+if __name__ == "__main__":
+    conf = MyConfig2("MyConfig2")
+    print(conf.intparam)

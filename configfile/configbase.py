@@ -16,7 +16,7 @@ class ConfigBase(metaclass=AbstractSingleton):
     def __init__(self, name:str=None, config_file:Optional[str]=None, environ_vars_overwrite_conf:bool=True):
 
         if name == None:
-            name = ConfigBase.NAME
+            name = ConfigBase.NAME + "_" + type(self).__name__
         self.name = name
         self.environ_vars_overwrite_conf = environ_vars_overwrite_conf
 
@@ -80,6 +80,12 @@ class ConfigBase(metaclass=AbstractSingleton):
         return NotImplementedError
 
     #TODO: ensure that only parent process can change config values
+
+    def add_params_from_other_config(self, config):
+        selfParamsNames = self.__dict__.get("all_parameters_names", set())
+        self.all_parameters_names = selfParamsNames.union(config.all_parameters_dict.keys())
+        for k,v in config.all_parameters_dict.items():
+            setattr(self, config.name+"_"+k, v)
 
     def __getitem__(self, key):
         return self.get(key)

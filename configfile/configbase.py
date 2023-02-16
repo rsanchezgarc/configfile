@@ -1,8 +1,8 @@
 # configfile
-
+import collections
 import os
 from abc import abstractmethod
-from typing import Optional
+from typing import Optional, get_type_hints
 
 import yaml
 from configfile.exceptions import ConfigErrorFromEnv, ConfigErrorParamNotDefined, ConfigErrorParamTypeMismatch
@@ -13,6 +13,7 @@ class ConfigBase(metaclass=AbstractSingleton):
     NAME = "CONFIG"
     VALID_TYPES_FOR_ENV=[bool, str, int, float]
     PREFIX_ENV_SEP = "___"
+    NESTED_SEPARATOR = "__"
     def __init__(self, name:str=None, config_file:Optional[str]=None, environ_vars_overwrite_conf:bool=True):
 
         if name == None:
@@ -143,5 +144,52 @@ class ConfigBase(metaclass=AbstractSingleton):
             else:
                 raise ConfigErrorParamTypeMismatch(f"Error, {key} parameter in the dictionary {params_dict} is not difined in the default parameters")
 
+    def add_args_to_argparse(self, parser):
+
+        from configfile.utils import function_local_annotations, allowed_types, allowed_typenames
+        annotations = function_local_annotations(self.set_parameters)
+        all_params = flatDict(self.all_parameters_dict, sep=self.NESTED_SEPARATOR)
+        for k,v in all_params.items():
+            if v is None:
+                assert k in annotations, f"Error, argument {k} is None, but has no type hint in config"
+                type_name = annotations[k]["type"]
+                _type = allowed_types[allowed_typenames.index(type_name)]
+                nargs = "+" if annotations[k]["isList"] else None
+
+            elif isinstance(v, (list, tuple)):
+                nargs="+"
+                types = [type(x) for x in v]
+                types_names = set()
+                for t in types:
+                    assert t in allowed_types, f"Error, only _type {allowed_types} are allowed. Got {k,v, t}"
+                    types_names.add(t.__name__)
+                assert len(types_names) == 1, f"Error, only homogeneous lists are allowed {k,v, t}"
+                _type = types[0]
+                type_name = types_names.pop()
+            else:
+                nargs=None
+                _type = type(v)
+                assert _type in allowed_types, f"Error, only _type {allowed_types} are allowed. Got {k,v, _type}"
+                type_name = _type.__name__
+
+            if k in annotations:
+                assert type_name == annotations[k]["type"], f"Error, mismatch between type hint and set value " \
+                                                            f"{k, type_name == annotations[v]['type']}"
+
+            help = f" {type_name}. Default={v}"
+            parser.add_argument(f"--{k.lower()}", type=_type, default=v, nargs=nargs, help=help)
+        return parser
 
 
+    def __str__(self):
+        return str(self.all_parameters_dict)
+
+def flatDict(d, parent_key='', sep='__'):
+    items = []
+    for k, v in d.items():
+        new_key = parent_key + sep + k if parent_key else k
+        if isinstance(v, collections.abc.MutableMapping):
+            items.extend(flatDict(v, new_key, sep=sep).items())
+        else:
+            items.append((new_key, v))
+    return dict(items)

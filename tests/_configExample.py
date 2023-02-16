@@ -1,3 +1,5 @@
+from typing import Optional
+
 from configfile.configbase import ConfigBase
 
 
@@ -25,7 +27,8 @@ if __name__ == "__main__":
 
     class MyConf3(ConfigBase):
         def set_parameters(self):
-            self.myParam = "3"
+            self.myParam:str = "3"
+            self.myParamNot:Optional[str] = None
             self.add_params_from_other_config(conf)
 
     conf3 = MyConf3()

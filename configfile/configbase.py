@@ -26,9 +26,6 @@ class ConfigBase(metaclass=AbstractSingleton):
         all_parameters_names = self.__dict__.keys() - current_attrib
         # self.environ_vars_overwrite_conf = environ_vars_overwrite_conf
 
-        #os.environ["MyConfig2___intparam"]
-
-
 
         self.attr_2_type_dict_for_env = {} #TODO: Fill types dict by analysing all newly added parameters
         self.attr_2_type_dict = {} #TODO: Fill types dict by analysing all newly added parameters

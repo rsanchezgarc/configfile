@@ -35,3 +35,4 @@ if __name__ == "__main__":
     print(conf3.myParam)
     print(conf3.MyConfig2_plist)
     print(conf3.MyConfig2_strparam)
+    print(conf3.all_parameters_dict)

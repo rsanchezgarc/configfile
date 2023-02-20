@@ -23,7 +23,7 @@ class ConfigBase(metaclass=AbstractSingleton):
     def __init__(self, name:str=None, config_file:Optional[str]=None, environ_vars_overwrite_conf:bool=True):
 
         if name == None:
-            name = ConfigBase.NAME + "-" + type(self).__name__
+            name = ConfigBase.NAME + "_" + type(self).__name__
         self.name = name
         self.environ_vars_overwrite_conf = environ_vars_overwrite_conf
         self.config_classes = [(type(self), "")] #List of duples, first elem, config class, second, str prefix for variables
@@ -220,14 +220,14 @@ class ConfigBase(metaclass=AbstractSingleton):
     def __str__(self):
         return str(self.all_parameters_dict)
 
-    def remove_env_vars(self):
-        for key in self.all_parameters_names:
-            envkey = self.param_to_env_name(key)
-            if envkey in os.environ:
-                del os.environ[envkey]
-
-    def __del__(self):
-        self.remove_env_vars()
+    # def remove_env_vars(self):
+    #     for key in self.__dict__.get("all_parameters_names", {}):
+    #         envkey = self.param_to_env_name(key)
+    #         if envkey in os.environ:
+    #             del os.environ[envkey]
+    #
+    # def __del__(self):
+    #     self.remove_env_vars()
 
 def flatDict(d, parent_key='', sep='__'):
     items = []

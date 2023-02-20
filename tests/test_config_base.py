@@ -1,5 +1,6 @@
 import os
 import subprocess
+import sys
 from typing import List, Optional
 from unittest import TestCase
 
@@ -72,7 +73,7 @@ class TestConfig(TestCase):
         conf = _MyConfig2(config_file=os.path.join(os.path.dirname(__file__),"data/myconfig2.yaml"))
         # print(conf.all_parameters_dict)
         self.assertEqual(conf["conf2Str"], "test_myconfig2")
-        self.assertEqual(conf["conf2List"], [-1, -2])
+        self.assertEqual(conf["conf2List"], [-100, -2])
 
     def test_update(self):
         from tests._configExample import MyConfig2
@@ -255,10 +256,31 @@ class TestConfig(TestCase):
     def test_multiprocessing4(self):
         out = 1
         try:
-            out = subprocess.check_call(["python", "-m", "configfile.tests._exec_example.main"])
+            python = sys.executable
+            out = subprocess.check_call([python, "-m", "configfile.tests._exec_example.main"])
         except subprocess.CalledProcessError:
             pass
         self.assertEqual(out, 0)
+
+    def test_multiple_yaml(self):
+        from configfile.configbase import ConfigBase
+        from tests._configExample import MyConfig2
+
+        class _MyConfig2(MyConfig2): pass
+
+        conf2 = _MyConfig2(config_file=os.path.join(os.path.dirname(__file__), "data/myconfig2.yaml"))
+
+        class MyConfig_yaml(ConfigBase):
+
+            def set_parameters(self):
+                self.conf_3_List = ["one", "two"]
+                self.conf_3_int = 0
+                self._add_params_from_other_config(conf2)
+
+        conf = MyConfig_yaml(config_file=os.path.join(os.path.dirname(__file__), "data/myconfig_3.yaml"))
+
+        self.assertEqual(conf.conf_3_int, 3)
+        self.assertEqual(conf.CONFIG__MyConfig2__conf2List, [-100, -2])
 
 def _func():
     from tests._configExample2 import conf

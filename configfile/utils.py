@@ -42,9 +42,11 @@ class AnnotationsCollector(ast.NodeVisitor):
         if hasattr(anno, "slice"):
             assert anno.value.id in ["Optional", "List"], "Error, only Optional[T] or List[T] allowed"
             if anno.value.id == "Optional":
-                return self.get_anno(anno.slice.value)
+                # return self.get_anno(anno.slice.value) #This is for old versions
+                return self.get_anno(anno.slice)
             else:
-                content = anno.slice.value.id
+                # content = anno.slice.value.id #This is for old versions
+                content = anno.slice.id
                 isList = True
         elif hasattr(anno, "value"):
             content = anno.value.id
@@ -62,6 +64,7 @@ class AnnotationsCollector(ast.NodeVisitor):
         if node.simple:
             self.annotations[node.target.id] = self.get_anno(node.annotation)
         elif node.target.value.id == "self":
+            # print(node.target.value.id, node.target.attr, node.annotation.value.id)
             self.annotations[node.target.attr] = self.get_anno(node.annotation)
 
 

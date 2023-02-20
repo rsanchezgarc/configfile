@@ -1,4 +1,4 @@
 parameters:
-  - conf2Int: -1
+  - conf2Int: 99
   - conf2Str: "test_myconfig2"
-  - conf2List: [-1, -2]
+  - conf2List: [-100, -2]

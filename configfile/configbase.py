@@ -117,9 +117,10 @@ class ConfigBase(metaclass=AbstractSingleton):
 
     #TODO: ensure that only parent process can change config values
 
-    def _add_params_from_other_config(self, config, prepend_config_name=True):
+    def _add_params_from_other_config(self, config, prepend_config_name=True, caller_function_name="set_parameters"):
         self.config_classes.append((type(config), config.name+self.NESTED_SEPARATOR if prepend_config_name else "") )
-        assert  inspect.stack()[1].function == "set_parameters"
+        print(inspect.stack()[1].function)
+        assert  inspect.stack()[1].function == caller_function_name
         for k,v in config.all_parameters_dict.items():
             if prepend_config_name:
                 newname = config.name+self.NESTED_SEPARATOR+k

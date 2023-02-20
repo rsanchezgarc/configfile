@@ -90,17 +90,19 @@ def get_annotations_from_function(func):
     return collector.annotations
 
 
-def get_annotations_from_value(value):
+def get_annotations_from_value(value): #TODO: Add homogeneus dictionary compability
     if isinstance(value, (list, tuple)):
         isList = True
         types = [type(x) for x in value]
         set_types = set([t.__name__ for t in types])
         assert len(set_types) == 1, "Error only homogeneous lists are allowed"
-        assert all(t in ALLOWED_TYPE_NAMES for t in set_types), "Error only homogeneus lists are allowed"
+        assert all(t in ALLOWED_TYPE_NAMES for t in set_types), f"Error not primitive type detected {set_types}"
         content = types.pop()
     else:
         isList = False
         content = type(value)
+        assert content.__name__ in ALLOWED_TYPE_NAMES , f"Error not primitive type detected {content}"
+
     return {"dtype": content, "isList": isList}
 
 @functools.lru_cache

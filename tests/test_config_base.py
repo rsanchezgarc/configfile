@@ -1,7 +1,7 @@
 import os
 import subprocess
 import sys
-from typing import List, Optional
+from typing import List, Optional, Dict
 from unittest import TestCase
 
 
@@ -281,6 +281,32 @@ class TestConfig(TestCase):
 
         self.assertEqual(conf.conf_3_int, 3)
         self.assertEqual(conf.CONFIG__MyConfig2__conf2List, [-100, -2])
+
+
+    def test_dict_as_attr(self):
+        from configfile.configbase import ConfigBase
+
+        class MyConfig(ConfigBase):
+
+            def set_parameters(self):
+                self.conf_dict = {"key1":1, "key2":2}
+
+        conf = MyConfig()
+
+        self.assertEqual(conf.conf_dict, {"key1":1, "key2":2})
+
+
+    def test_dict_as_attr2(self):
+        from configfile.configbase import ConfigBase
+
+        class MyConfig(ConfigBase):
+
+            def set_parameters(self):
+                self.conf_dict:Optional[Dict[str, int]] = None
+
+        conf = MyConfig()
+
+        self.assertEqual(conf.conf_dict, None)
 
 def _func():
     from tests._configExample2 import conf

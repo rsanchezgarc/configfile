@@ -217,7 +217,18 @@ class ConfigBase(metaclass=AbstractSingleton):
                                                             f"{k, _type,  annotations[v]['type']}"
 
             help = f" {type_name}. Default={v}"
-            parser.add_argument(f"--{k}", type=_type, default=v, nargs=nargs, help=help)
+            if _type == bool:
+                assert v is not None, "Error, bool arguments need to have associated default value. %s does not" % k
+                if v is True:
+                    action = "store_false"
+                    varname = "NOT_" + k
+                else:
+                    action = "store_true"
+                    varname = k
+                help += " Action: " + action + " for variable %s" % k
+                parser.add_argument("--" + varname, help=help, action=action, dest=k)
+            else:
+                parser.add_argument(f"--{k}", type=_type, default=v, nargs=nargs, help=help)
         return parser
 
 

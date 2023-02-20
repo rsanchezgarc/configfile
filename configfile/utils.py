@@ -1,6 +1,10 @@
+import functools
+import re
 from abc import ABCMeta
 import inspect
 import ast
+
+from configfile.constants import ALLOWED_TYPES, ALLOWED_TYPE_NAMES, VALID_ANNOTATION_LIST_REGEX_PATT
 
 
 class Singleton(type):
@@ -27,36 +31,18 @@ class AbstractSingleton(ABCMeta):
         return cls._instances[cls]
 
 
-allowed_types = (int, str, bool, float) #, type(None))
-allowed_typenames = [x.__name__ for x in allowed_types]
-
-
 class AnnotationsCollector(ast.NodeVisitor):
     """Collects AnnAssign nodes for 'simple' annotation assignments"""
 
     def __init__(self):
         self.annotations = {}
 
-    # def get_anno(self, anno):
-    #     if hasattr(anno, "slice"):
-    #         content = anno.slice.value.id
-    #         assert content in allowed_typenames, f"Error, only allowed_types {allowed_types}, provided {content}"
-    #         assert anno.value.id in ["Optional", "List"], "Error, only Optional[T] or List[T] allowed"
-    #         if anno.value.id == "Optional":
-    #             isList = False
-    #         else:
-    #             isList = True
-    #     else:
-    #         content = anno.value.id
-    #         isList = False
-    #     return {"type": content, "isList": isList}
 
     def get_anno(self, anno):
         if hasattr(anno, "slice"):
             assert anno.value.id in ["Optional", "List"], "Error, only Optional[T] or List[T] allowed"
             if anno.value.id == "Optional":
                 return self.get_anno(anno.slice.value)
-                # isList = False
             else:
                 content = anno.slice.value.id
                 isList = True
@@ -67,9 +53,10 @@ class AnnotationsCollector(ast.NodeVisitor):
             content = anno.id
             isList = False
 
-        assert content in allowed_typenames, f"Error, only allowed_types {allowed_types}, provided {content}"
+        assert content in ALLOWED_TYPE_NAMES, f"Error, only allowed_types {ALLOWED_TYPES}, provided {content}"
 
-        return {"type": content, "isList": isList}
+        return {"dtype": ALLOWED_TYPES[ALLOWED_TYPE_NAMES.index(content)],
+                "isList": isList}
 
     def visit_AnnAssign(self, node):
         if node.simple:
@@ -78,7 +65,7 @@ class AnnotationsCollector(ast.NodeVisitor):
             self.annotations[node.target.attr] = self.get_anno(node.annotation)
 
 
-def function_local_annotations(func):
+def get_annotations_from_function(func):
     """Return a mapping of name to string annotations for function locals
 
     Python does not retain PEP 526 "variable: annotation" variable annotations
@@ -98,3 +85,53 @@ def function_local_annotations(func):
     collector.visit(mod.body[0])
 
     return collector.annotations
+
+
+def get_annotations_from_value(value):
+    if isinstance(value, (list, tuple)):
+        isList = True
+        types = [type(x) for x in value]
+        set_types = set([t.__name__ for t in types])
+        assert len(set_types) == 1, "Error only homogeneous lists are allowed"
+        assert all(t in ALLOWED_TYPE_NAMES for t in set_types), "Error only homogeneus lists are allowed"
+        content = types.pop()
+    else:
+        isList = False
+        content = type(value)
+    return {"dtype": content, "isList": isList}
+
+@functools.lru_cache
+def typeBuilder(dtype, isList, isInputStr=True):
+    if not isList:
+        return dtype
+    else:
+        if isInputStr:
+            prepro = lambda x: ast.literal_eval(x)
+        else:
+            prepro = lambda x: x
+        return lambda val: [typeBuilder(dtype, isList=False)(x) for x in prepro(val)] if val is not None else None
+
+# def typeName2Builder(typeName, isInputStr=False):
+#
+#     if typeName in ALLOWED_TYPE_NAMES:
+#         return ALLOWED_TYPES[ALLOWED_TYPE_NAMES.index(typeName)]
+#     elif typeName.startswith("List") or typeName.startswith("Tuple"):
+#         _typename= re.match(VALID_ANNOTATION_LIST_REGEX_PATT, typeName)
+#         assert _typename, f"Error, Not valid typeString, {typeName}"
+#         _typename = _typename.group(2)
+#         if isInputStr:
+#             prepro = lambda x: ast.literal_eval(x)
+#         else:
+#             prepro = lambda x: x
+#         return lambda val: [typeName2Builder(_typename)(x) for x in prepro(val)]
+
+# def _test_typeName2Builder():
+#     typer = typeName2Builder("List[str]")
+#     out = typer([1,2,3])
+#     assert  out == ['1', '2', '3']
+#     typer = typeName2Builder("List[int]", isInputStr=True)
+#     out = typer('[0, 1, 2, 3]')
+#     assert out == [0, 1, 2, 3]
+
+# _test_typeName2Builder()
+

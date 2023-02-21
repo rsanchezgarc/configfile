@@ -76,9 +76,9 @@ class ConfigBase(metaclass=AbstractSingleton):
                 annotated_types.update(_annot)
         return annotated_types
 
-    def init_attr_2_type(self, all_parameters_names=None):
+    def init_attr_2_type(self, all_parameters_names=None, clean_cache=False):
 
-        if self.attr_2_typeBuilder is not None and self.attr_2_type is not None:
+        if not clean_cache and self.attr_2_typeBuilder is not None and self.attr_2_type is not None:
             return
         if all_parameters_names is None:
             all_parameters_names = self.all_parameters_names
@@ -90,7 +90,6 @@ class ConfigBase(metaclass=AbstractSingleton):
                           for attr in all_parameters_names}
 
         for k, v in inferred_types.items():
-            #TODO: if v is Nonetype -> read from annotated
             if v["dtype"] == type(None):
                 assert k in annotated_types, "Error, if None provided as default value, type hint is required. {k, v, annotated_types[k]}"
                 v = annotated_types[k]
@@ -117,9 +116,9 @@ class ConfigBase(metaclass=AbstractSingleton):
 
     #TODO: ensure that only parent process can change config values
 
-    def _add_params_from_other_config(self, config, prepend_config_name=True, caller_function_name="set_parameters"):
+    def _add_params_from_other_config(self, config, prepend_config_name=True):
         self.config_classes.append((type(config), config.name+self.NESTED_SEPARATOR if prepend_config_name else "") )
-        assert  inspect.stack()[1].function == caller_function_name
+        assert  inspect.stack()[1].function == "set_parameters"
         for k,v in config.all_parameters_dict.items():
             if prepend_config_name:
                 newname = config.name+self.NESTED_SEPARATOR+k

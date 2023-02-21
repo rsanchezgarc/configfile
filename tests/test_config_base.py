@@ -4,13 +4,15 @@ import sys
 from typing import List, Optional, Dict
 from unittest import TestCase
 
+from configfile.exceptions import ConfigErrorParamNotDefined
+
 
 class TestConfig(TestCase):
 
     def test_instantiateAbstract(self):
         from configfile.configbase import ConfigBase
         try:
-            conf = ConfigBase()
+            conf = ConfigBase(name="test_instantiateAbstract")
         except TypeError as e:
             self.assertTrue(str(e).startswith("Can't instantiate abstract class"))
             return
@@ -20,36 +22,36 @@ class TestConfig(TestCase):
 
         from tests._configExample import MyConfig1
         class _MyConfig1(MyConfig1): pass
-        conf = _MyConfig1()
+        conf = _MyConfig1("test_simpleConfig")
         self.assertEqual(conf.conf1Str, "caca")
 
     def test_instantiateSeveralConfs(self):
 
         from tests._configExample import MyConfig1
         class _MyConfig1(MyConfig1): pass
-        conf = _MyConfig1()
+        conf = _MyConfig1("test_instantiateSeveralConfs")
         default_val = conf.conf1Int
         conf.conf1Int = 95
-        conf = _MyConfig1()
+        conf = _MyConfig1("test_instantiateSeveralConfs2")
         self.assertEqual(conf.conf1Int,95)
-        conf = _MyConfig1()
+        conf = _MyConfig1("test_instantiateSeveralConfs3")
         self.assertNotEqual(conf.conf1Int,default_val)
 
     def test_get(self):
         from tests._configExample import MyConfig1
         class _MyConfig1(MyConfig1): pass
-        conf = _MyConfig1()
+        conf = _MyConfig1("test_get")
         self.assertEqual(conf.conf1Str, conf["conf1Str"])
         try:
             conf["not_valid"]
-        except AttributeError:
+        except ConfigErrorParamNotDefined:
             return
         self.fail()
 
     def test_set(self):
         from tests._configExample import MyConfig1
         class _MyConfig1(MyConfig1): pass
-        conf = _MyConfig1()
+        conf = _MyConfig1("test_set")
         conf["conf1Int"] = 99
         self.assertEqual(conf.conf1Int, 99)
         conf.conf1Int = -1
@@ -58,11 +60,11 @@ class TestConfig(TestCase):
     def test_get_from_environ(self):
         from tests._configExample import MyConfig1, MyConfig2
         class _MyConfig1(MyConfig1): pass
-        conf = _MyConfig1()
+        conf = _MyConfig1("test_get_from_environ")
         os.environ[conf.param_to_env_name("conf1Int")] = "10"
         self.assertEqual(conf["conf1Int"], 10)
         class _MyConfig2(MyConfig2): pass
-        conf2 = _MyConfig2()
+        conf2 = _MyConfig2("test_get_from_environ2")
         os.environ[conf2.param_to_env_name("conf2Int")] = "10"
         self.assertEqual(conf2["conf2Int"], 10)
 
@@ -70,14 +72,15 @@ class TestConfig(TestCase):
     def test_load_yml(self):
         from tests._configExample import MyConfig2
         class _MyConfig2(MyConfig2): pass
-        conf = _MyConfig2(config_file=os.path.join(os.path.dirname(__file__),"data/myconfig2.yaml"))
+        conf = _MyConfig2(name="test_load_yml",
+                          config_file=os.path.join(os.path.dirname(__file__),"data/myconfig2.yaml"))
         # print(conf.all_parameters_dict)
         self.assertEqual(conf["conf2Str"], "test_myconfig2")
         self.assertEqual(conf["conf2List"], [-100, -2])
 
     def test_update(self):
         from tests._configExample import MyConfig2
-        conf = MyConfig2()
+        conf = MyConfig2("test_update")
         conf.update(dict(conf2Int=-1, conf2List=[-1, -5]))
         self.assertEqual(conf["conf2Int"], -1)
         self.assertEqual(conf["conf2List"], [-1, -5])
@@ -92,7 +95,8 @@ class TestConfig(TestCase):
             def set_parameters(self):
                 super().set_parameters()
                 self.null_param:Optional[int] = None
-        conf = _MyConfig1()
+
+        conf = _MyConfig1("test_argparse")
         self.assertEqual(conf.conf1Str, "caca")
         parser = ArgumentParser()
         conf.add_args_to_argparse(parser)
@@ -108,7 +112,7 @@ class TestConfig(TestCase):
                 self.one_list:List[float]=[1.,12.]
                 self.null_list:Optional[List[float]]=None
 
-        conf = _MyConfig3()
+        conf = _MyConfig3("test_argparse3")
         parser = ArgumentParser()
         conf.add_args_to_argparse(parser)
         # parser.print_help()
@@ -118,12 +122,45 @@ class TestConfig(TestCase):
         pars = parser.parse_args(["--null_list", "3", "82"])
         self.assertAlmostEqual(sum(pars.null_list), sum([3, 82]))
 
+    def test_argparse_with_inheritance(self):
+
+        from argparse import ArgumentParser
+        from tests._configExample import MyConfig2
+        from configfile import ConfigBase
+
+        class _MyConfig2(MyConfig2):
+            pass
+
+        conf2 = _MyConfig2("test_argparse_with_inheritance2")
+
+        class MyConf3(ConfigBase):
+            def set_parameters(self):
+                self.conf3Int: int = 3
+                self.conf3Str = "3"
+                self.conf3Not: Optional[str] = None
+                self._add_params_from_other_config(conf2)
+
+        conf3 = MyConf3("test_argparse_with_inheritance3")
+        self.assertTrue(conf3.conf3Str == "3")
+
+        parser = ArgumentParser()
+        conf3.add_args_to_argparse(parser)
+        # parser.print_help()
+        pars = parser.parse_args(["--conf3Not", "3",])
+        self.assertEqual(pars.conf3Not, "3")
+
+        pars = parser.parse_args(["--conf3Int", "3",])
+        self.assertEqual(pars.conf3Int, 3)
+
+        pars = parser.parse_args(["--test_argparse_with_inheritance2__conf2List", "3", "82"])
+        self.assertAlmostEqual(sum(pars.test_argparse_with_inheritance2__conf2List), sum([3, 82]))
 
     def test_inheritance0(self):
         from tests._configExample import MyConfig2
         from configfile import ConfigBase
-
-        conf2 = MyConfig2("MyConfig2")
+        class _MyConfig2(MyConfig2):
+            pass
+        conf2 = _MyConfig2("test_inheritance02")
         print(conf2.conf2Int)
         print(conf2.conf2Str)
 
@@ -133,15 +170,17 @@ class TestConfig(TestCase):
                 self.conf3Not: Optional[str] = None
                 self._add_params_from_other_config(conf2)
 
-        conf3 = MyConf3()
+        conf3 = MyConf3("test_inheritance03")
         self.assertTrue(conf3.conf3Str == "3")
-        self.assertTrue(conf3.MyConfig2__conf2Str == "tua")
+        self.assertTrue(conf3.test_inheritance02__conf2Str == "tua")
 
     def test_inheritance1(self):
         from tests._configExample import MyConfig1
         from configfile import ConfigBase
 
-        conf1 = MyConfig1("MyConfig1")
+        class _MyConfig1(MyConfig1):
+            pass
+        conf1 = _MyConfig1("test_inheritance11")
 
         class MyConfig2(ConfigBase):
             def set_parameters(self):
@@ -149,31 +188,33 @@ class TestConfig(TestCase):
                 self.conf2Int = 2
                 self.conf2Str ="tua"
 
-        conf2 = MyConfig2("MyConfig2")
+        conf2 = MyConfig2("test_inheritance12")
 
         class MyConf3(ConfigBase):
             def set_parameters(self):
                 self.conf3Str: str = "3"
                 self._add_params_from_other_config(conf2)
 
-        conf3 = MyConf3()
+        conf3 = MyConf3("test_inheritance13")
         self.assertEqual(conf3.conf3Str, "3")
-        self.assertEqual(conf3.MyConfig2__conf2Str, "tua")
-        self.assertEqual(conf3.MyConfig2__MyConfig1__conf1Str, "caca")
-        self.assertEqual(conf3.MyConfig2__conf2Int, 2)
+        self.assertEqual(conf3.test_inheritance12__conf2Str, "tua")
+        self.assertEqual(conf3.test_inheritance12__test_inheritance11__conf1Str, "caca")
+        self.assertEqual(conf3.test_inheritance12__conf2Int, 2)
 
     def test_inheritance2(self):
         from tests._configExample import MyConfig1
         from configfile import ConfigBase
 
-        conf1 = MyConfig1("MyConfig1")
+        class _MyConfig1(MyConfig1):
+            pass
+        conf1 = _MyConfig1("testInheritance21")
 
         class MyConfig2(ConfigBase):
             def set_parameters(self):
                 self.conf2Int = 2
                 self.conf2Str ="tua"
 
-        conf2 = MyConfig2("MyConfig2")
+        conf2 = MyConfig2("testInheritance22")
 
         class MyConf3(ConfigBase):
             def set_parameters(self):
@@ -181,19 +222,25 @@ class TestConfig(TestCase):
                 self.conf3Str: str = "3"
                 self._add_params_from_other_config(conf2)
 
-        conf3 = MyConf3()
+        conf3 = MyConf3("testInheritance23")
         # from argparse import ArgumentParser
         # parser = ArgumentParser()
         # conf3.add_args_to_argparse(parser)
         # parser.print_help()
         self.assertEqual(conf3.conf3Str, "3")
-        self.assertEqual(conf3.MyConfig2__conf2Str, "tua")
-        self.assertEqual(conf3.MyConfig1__conf1Str, "caca")
-        self.assertEqual(conf3.MyConfig2__conf2Int, 2)
-        self.assertTrue(not hasattr(conf3 , "MyConfig2__MyConfig1__conf1Str"))
-
-
-
+        self.assertEqual(conf3.testInheritance21__conf1Str, "caca")
+        self.assertEqual(conf3.testInheritance22__conf2Str, "tua")
+        self.assertEqual(conf3.testInheritance22__conf2Int, 2)
+        try:
+            hasattr(conf3 , "fakeVar")
+            self.fail()
+        except ConfigErrorParamNotDefined:
+            pass
+        try:
+            hasattr(conf3, "testInheritance22__testInheritance21__conf1Str")
+            self.fail()
+        except ConfigErrorParamNotDefined:
+            pass
 
     def test_multiprocessing(self):
 
@@ -203,7 +250,7 @@ class TestConfig(TestCase):
                 self.conf1Int = 2
                 self.conf1Str ="caca"
 
-        conf = MyConfig1("test_multiprocessing")
+        conf = MyConfig1("test_multiprocessing0")
         self.assertEqual(conf.conf1Int, 2)
         conf.conf1Int = 10
         self.assertEqual(conf.conf1Int, 10)
@@ -235,7 +282,7 @@ class TestConfig(TestCase):
         p.join()
 
     def test_multiprocessing3(self):
-        from tests._configExample2 import conf
+        from tests._configExample_test_mlp3 import conf
         self.assertEqual(conf.conf1Int, 1)
         conf.conf1Int = 10
         self.assertEqual(conf.conf1Int, 10)
@@ -268,7 +315,7 @@ class TestConfig(TestCase):
 
         class _MyConfig2(MyConfig2): pass
 
-        conf2 = _MyConfig2(config_file=os.path.join(os.path.dirname(__file__), "data/myconfig2.yaml"))
+        conf2 = _MyConfig2("test_multiple_yaml0", config_file=os.path.join(os.path.dirname(__file__), "data/myconfig2.yaml"))
 
         class MyConfig_yaml(ConfigBase):
 
@@ -277,10 +324,10 @@ class TestConfig(TestCase):
                 self.conf_3_int = 0
                 self._add_params_from_other_config(conf2)
 
-        conf = MyConfig_yaml(config_file=os.path.join(os.path.dirname(__file__), "data/myconfig_3.yaml"))
+        conf = MyConfig_yaml("test_multiple_yaml1", config_file=os.path.join(os.path.dirname(__file__), "data/myconfig_3.yaml"))
 
         self.assertEqual(conf.conf_3_int, 3)
-        self.assertEqual(conf.CONFIG__MyConfig2__conf2List, [-100, -2])
+        self.assertEqual(conf.test_multiple_yaml0__conf2List, [-100, -2])
 
 
     def test_dict_as_attr(self):
@@ -291,7 +338,7 @@ class TestConfig(TestCase):
             def set_parameters(self):
                 self.conf_dict = {"key1":1, "key2":2}
 
-        conf = MyConfig()
+        conf = MyConfig("test_dict_as_attr0")
 
         self.assertEqual(conf.conf_dict, {"key1":1, "key2":2})
 
@@ -304,12 +351,12 @@ class TestConfig(TestCase):
             def set_parameters(self):
                 self.conf_dict:Optional[Dict[str, int]] = None
 
-        conf = MyConfig()
+        conf = MyConfig("test_dict_as_attr2")
 
         self.assertEqual(conf.conf_dict, None)
 
 def _func():
-    from tests._configExample2 import conf
+    from tests._configExample_test_mlp3 import conf
 
     if conf.conf1Int != 10:
-        raise RuntimeError()
+        raise RuntimeError(f"Error, conf.conf1Int ({conf.conf1Int}) != 10")

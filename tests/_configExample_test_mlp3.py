@@ -9,11 +9,6 @@ class MyConfig1(ConfigBase):
         self.conf1List = [1,2,3]
 
 
-conf = MyConfig1()
-print(conf.conf1List)
-print(conf.name)
-conf.conf1Int = 10
-assert "conf1Int" not in conf.__dict__
-print(conf.conf1Int)
-print("Done")
+conf = MyConfig1("_configExample_test_mlp3")
+
 

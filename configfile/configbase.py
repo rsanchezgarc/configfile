@@ -45,13 +45,21 @@ class ConfigBase(metaclass=AbstractSingleton):
         self._initialized = True
 
         if config_file is not None:
+            assert self.DEFAULT_YML_ENVVARNAME not in os.environ, "Error, config_file yaml was provided in the builder and as environmental variable"
             self.override_with_yaml(config_file)
+        elif  self.DEFAULT_YML_ENVVARNAME in os.environ:
+            self.override_with_yaml(os.environ[self.DEFAULT_YML_ENVVARNAME])
+
         self.override_with_env_vars(env_vars)
 
 
     @property
     def all_parameters_dict(self):
         return dict(self._storage.items())
+
+    @property
+    def DEFAULT_YML_ENVVARNAME(self):
+        return self.name+"_conf.yaml"
 
     def param_to_env_name(self, k):
         return param_to_env_name(self.name, PREFIX_ENV_SEP, k)
@@ -155,6 +163,8 @@ class ConfigBase(metaclass=AbstractSingleton):
             else:
                 newname = k
             setattr(self, newname, v)
+        return config.all_parameters_dict.copy()
+
 
     def _get_annotations_from_function(self):
         annotated_types= {}

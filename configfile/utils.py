@@ -1,5 +1,7 @@
+import argparse
 import collections
 import functools
+import json
 import re
 from abc import ABCMeta
 import inspect
@@ -57,15 +59,28 @@ class AnnotationsCollector(ast.NodeVisitor):
 
 
     def get_anno(self, anno):
+        isDict = False
         if hasattr(anno, "slice"):
-            assert anno.value.id in ["Optional", "List"], "Error, only Optional[T] or List[T] allowed"
-            if anno.value.id == "Optional":
-                # return self.get_anno(anno.slice.value) #This is for old versions
-                return self.get_anno(anno.slice)
+            if anno.value.id in ["Optional", "List", "Dict"]:
+                if anno.value.id == "Optional":
+                    # return self.get_anno(anno.slice.value) #This is for old versions
+                    return self.get_anno(anno.slice)
+                else:
+                    if anno.value.id == "Dict":
+                        assert anno.slice.elts[0].id == "str", "Error, only Dict[str,T] allowed"
+                        content = anno.slice.elts[1].id
+                        isList = False
+                        isDict = True
+
+                    else:
+                        content = anno.slice.id
+                        # content = anno.slice.value.id #This is for old versions
+
+                        isList = True
+
             else:
-                # content = anno.slice.value.id #This is for old versions
-                content = anno.slice.id
-                isList = True
+               raise ValueError("Error, only Optional[T] or List[T] or Dict[str,T] allowed")
+
         elif hasattr(anno, "value"):
             content = anno.value.id
             isList = False
@@ -76,7 +91,7 @@ class AnnotationsCollector(ast.NodeVisitor):
         assert content in ALLOWED_TYPE_NAMES, f"Error, only allowed_types {ALLOWED_TYPES}, provided {content}"
 
         return {"dtype": ALLOWED_TYPES[ALLOWED_TYPE_NAMES.index(content)],
-                "isList": isList}
+                "isList": isList, "isDict":isDict}
 
     def visit_AnnAssign(self, node):
         if node.simple:
@@ -133,6 +148,16 @@ def typeBuilder(dtype, isList, isInputStr=True):
         else:
             prepro = lambda x: x
         return lambda val: [typeBuilder(dtype, isList=False)(x) for x in prepro(val)] if val is not None else None
+
+
+
+class ParseJsonAction(argparse.Action):
+    def __call__(self, parser, namespace, values, option_string=None):
+        try:
+            setattr(namespace, self.dest, json.loads(values))
+        except ValueError as e:
+            raise argparse.ArgumentError(self, f"Invalid JSON string: {e}")
+
 
 # def typeName2Builder(typeName, isInputStr=False):
 #

@@ -21,7 +21,7 @@ def readme():
     except Exception as e:
       return "Description not available due to unexpected error: "+str(e)
 
-install_requires = ["pyyaml==6.0"]
+install_requires = ["pyyaml==6.0", "argparse"]
 
 setup(name='configfile',
       version=version(),

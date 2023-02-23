@@ -129,7 +129,7 @@ class TestConfig(TestCase):
         self.assertEqual(conf.conf1Str, "caca")
         parser = ArgumentParser()
         conf.add_args_to_argparse(parser)
-        # parser.print_help()
+        parser.print_help()
         pars = parser.parse_args(["--null_param", "3"])
         self.assertEqual(pars.null_param, 3)
 
@@ -174,7 +174,7 @@ class TestConfig(TestCase):
 
         parser = ArgumentParser()
         conf3.add_args_to_argparse(parser)
-        # parser.print_help()
+        parser.print_help()
         pars = parser.parse_args(["--conf3Not", "3",])
         self.assertEqual(pars.conf3Not, "3")
 
@@ -183,6 +183,49 @@ class TestConfig(TestCase):
 
         pars = parser.parse_args(["--test_argparse_with_inheritance2__conf2List", "3", "82"])
         self.assertAlmostEqual(sum(pars.test_argparse_with_inheritance2__conf2List), sum([3, 82]))
+
+
+    def test_argparse_with_inheritance2(self):
+
+        from argparse import ArgumentParser
+        from configfile import ConfigBase
+
+        class _MyConfig2(ConfigBase):
+            PROJECT_NAME="PROJ_"
+            def set_parameters(self):
+                self.conf2Int = 2
+                self.conf2Str = "tua"
+                self.conf2List: Optional[List[int]] = None
+
+        conf2 = _MyConfig2("test_argparse_with_inheritance20")
+
+        class MyConf3(ConfigBase):
+            PROJECT_NAME="PROJ_"
+            def set_parameters(self):
+                self.conf3Int: int = 3
+                self.conf3Str = "3"
+                self.conf3Not: Optional[str] = None
+                self._add_params_from_other_config(conf2)
+
+        conf3 = MyConf3("test_argparse_with_inheritance23")
+        self.assertTrue(conf3.conf3Str == "3")
+
+        parser = ArgumentParser()
+        conf3.add_args_to_argparse(parser)
+        parser.print_help()
+        pars = parser.parse_args(["--conf3Not", "30",])
+        self.assertEqual(pars.conf3Not, "30")
+
+        pars = parser.parse_args(["--conf3Int", "35",])
+        self.assertEqual(pars.conf3Int, 35)
+        conf3.update(vars(pars))
+        self.assertEqual(conf3.conf3Int, 35)
+
+        pars = parser.parse_args(["--test_argparse_with_inheritance20__conf2List", "3", "82"])
+        self.assertAlmostEqual(sum(pars.test_argparse_with_inheritance20__conf2List), sum([3, 82]))
+        conf3.update(vars(pars))
+        self.assertAlmostEqual(sum(conf3.test_argparse_with_inheritance20__conf2List), sum([3, 82]))
+
 
     def test_inheritance0(self):
         from configfile import ConfigBase
@@ -337,7 +380,7 @@ class TestConfig(TestCase):
         out = 1
         try:
             python = sys.executable
-            out = subprocess.check_call([python, "-m", "configfile.tests._exec_example.main"])
+            out = subprocess.check_call([python, "-m", "tests._exec_example"])
         except subprocess.CalledProcessError:
             pass
         self.assertEqual(out, 0)
@@ -375,6 +418,14 @@ class TestConfig(TestCase):
 
         self.assertEqual(conf.conf_dict, {"key1":1, "key2":2})
 
+        from argparse import ArgumentParser
+        parser = ArgumentParser()
+        conf.add_args_to_argparse(parser)
+        parser.print_help()
+        pars = parser.parse_args(["--conf_dict", '{"conf_dict__key1": 10, "conf_dict__key2": 20}'])
+        self.assertEqual(pars.conf_dict, {"conf_dict__key1":10, "conf_dict__key2":20})
+        conf.update(vars(pars))
+        self.assertEqual(conf.conf_dict, {"conf_dict__key1":10, "conf_dict__key2":20})
 
     def test_dict_as_attr2(self):
         from configfile.configbase import ConfigBase
@@ -387,6 +438,15 @@ class TestConfig(TestCase):
         conf = MyConfig("test_dict_as_attr2")
 
         self.assertEqual(conf.conf_dict, None)
+
+        from argparse import ArgumentParser
+        parser = ArgumentParser()
+        conf.add_args_to_argparse(parser)
+        parser.print_help()
+        pars = parser.parse_args(["--conf_dict", '{"a":1}'])
+        self.assertEqual(pars.conf_dict, {"a":1})
+        conf.update(vars(pars))
+        self.assertEqual(conf.conf_dict, {"a":1})
 
 def _func():
     from tests._configExample_test_mlp3 import conf

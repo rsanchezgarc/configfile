@@ -2,7 +2,7 @@
 
 
 def _func():
-    from tests._configExample2 import conf as conf
+    from tests._configExample2 import conf
     print(conf.conf1Int)
     print(conf.conf1List)
     if conf.conf1Int != -10 or conf.conf1List != [10,20,30]:

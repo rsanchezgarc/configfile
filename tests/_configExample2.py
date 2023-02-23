@@ -10,10 +10,12 @@ class MyConfig1(ConfigBase):
 
 
 conf = MyConfig1()
-print(conf.conf1List)
-print(conf.name)
-conf.conf1Int = 10
-assert "conf1Int" not in conf.__dict__
-print(conf.conf1Int)
-print("Done")
+
+if __name__ == "__main__":
+    print(conf.conf1List)
+    print(conf.name)
+    conf.conf1Int = 10
+    assert "conf1Int" not in conf.__dict__
+    print(conf.conf1Int)
+    print("Done")
 

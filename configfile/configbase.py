@@ -9,8 +9,8 @@ from functools import partial
 from typing import Optional, Dict, Any, List
 
 from configfile.envVarUtils import param_to_env_name, env_to_param_name, serialize_param_to_envvar, \
-    parse_envvar_to_param
-from configfile.storages import EnvVarsStorage
+    load_envvar_to_param, load_envvar
+from configfile.storages import EnvVarsStorage, MultiStorage
 from configfile.utils import get_annotations_from_function, get_annotations_from_value, typeBuilder, flatDict
 from configfile.constants import ALLOWED_TYPES, ALLOWED_TYPE_NAMES, PREFIX_ENV_SEP, NESTED_SEPARATOR
 
@@ -23,19 +23,17 @@ from configfile.utils import AbstractSingleton
 
 class ConfigBase(metaclass=AbstractSingleton):
 
-    VALID_TYPES = ALLOWED_TYPES
+    VALID_TYPES = ALLOWED_TYPES #TODO: Enforce type checking
 
-    def __init__(self, name:str=None, config_file:Optional[str]=None, storage="EnvVarsStorage"):
+    def __init__(self, name:str=None, config_file:Optional[str]=None):
 
         if name == None:
             name = type(self).__name__
         self.name = name
 
         env_vars = os.environ.copy()
-        if storage == "EnvVarsStorage":
-            self._storage = EnvVarsStorage(name, PREFIX_ENV_SEP)
-        else:
-            raise ValueError(f"Error, storage={storage} not valid")
+        self._storage = MultiStorage(name=name, fallbackStorageClassName="EnvVarsStorage") #"EnvVarsStorage" is required to overwrite values from envvars
+
 
         self.config_classes_classPrefix = [(type(self), "")] #By default, the main Config has no prefix
 
@@ -97,7 +95,7 @@ class ConfigBase(metaclass=AbstractSingleton):
                 if varname not in self._storage.keys():
                     raise ConfigErrorParamNotDefined(f"Error, {k} variable, found as environmental variable has not been previously defined")
                 #TODO: check type
-                v = parse_envvar_to_param(v)
+                v = load_envvar_to_param(v)
                 self._storage.put(varname, v)
 
     def update(self, params_dict:Dict[str,Any]):
@@ -154,17 +152,12 @@ class ConfigBase(metaclass=AbstractSingleton):
         return parser
 
 
-    def _add_params_from_other_config(self, config, prepend_config_name=True):
-        self.config_classes_classPrefix.append((type(config), config.name+NESTED_SEPARATOR if prepend_config_name else "") )
-        assert  inspect.stack()[1].function == "set_parameters"
-        for k,v in config.all_parameters_dict.items():
-            if prepend_config_name:
-                newname = config.name+NESTED_SEPARATOR+k
-            else:
-                newname = k
-            setattr(self, newname, v)
-        return config.all_parameters_dict.copy()
+    def _add_params_from_other_config(self, config):
 
+        assert inspect.stack()[1].function == "set_parameters"
+        self.config_classes_classPrefix.append((type(config), config.name+NESTED_SEPARATOR) )
+        self._storage.addStorage(config._storage)
+        return dict(config.all_parameters_dict.copy())
 
     def _get_annotations_from_function(self):
         annotated_types= {}
@@ -197,7 +190,7 @@ class ConfigBase(metaclass=AbstractSingleton):
             else:
                 super().__setattr__(key, value)
 
-    def _get_from_storage(self, key):
+    def _get_from_storages(self, key):
         try:  # This works because keys in storage are never stored as part of the __dict__
             return self._storage.get(key)
         except KeyError:
@@ -206,7 +199,7 @@ class ConfigBase(metaclass=AbstractSingleton):
     def __getattr__(self, key):
 
         if "_initialized" in self.__dict__ and self._initialized:
-            return self._get_from_storage(key)
+            return self._get_from_storages(key)
         else:
             try:
                 return self.__dict__[key]
@@ -214,7 +207,7 @@ class ConfigBase(metaclass=AbstractSingleton):
                 raise AttributeError(f"Error, attribute {key} not found in {self}")
 
     def __getitem__(self, key):
-        return self._get_from_storage(key)
+        return getattr(self, key)
 
     def __setitem__(self, key, value):
         return self._storage.put(key, value)

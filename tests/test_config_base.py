@@ -21,8 +21,8 @@ class TestConfig(TestCase):
     def test_simpleConfig(self):
 
         from tests._configExample import MyConfig1
-        class _MyConfig1(MyConfig1): pass
-        conf = _MyConfig1("test_simpleConfig")
+        class _MyConfig_simpleConfig(MyConfig1): pass
+        conf = _MyConfig_simpleConfig("test_simpleConfig")
         self.assertEqual(conf.conf1Str, "caca")
 
     def test_instantiateSeveralConfs(self):
@@ -42,6 +42,7 @@ class TestConfig(TestCase):
         class _MyConfig1(MyConfig1): pass
         conf = _MyConfig1("test_get")
         self.assertEqual(conf.conf1Str, conf["conf1Str"])
+        #list(conf._storage.storages["test_get"].items())
         try:
             conf["not_valid"]
         except ConfigErrorParamNotDefined:
@@ -60,13 +61,39 @@ class TestConfig(TestCase):
     def test_get_from_environ(self):
         from tests._configExample import MyConfig1, MyConfig2
         class _MyConfig1(MyConfig1): pass
-        conf = _MyConfig1("test_get_from_environ")
+        conf = _MyConfig1("test_get_from_environ01")
         os.environ[conf.param_to_env_name("conf1Int")] = "10"
         self.assertEqual(conf["conf1Int"], 10)
         class _MyConfig2(MyConfig2): pass
-        conf2 = _MyConfig2("test_get_from_environ2")
+        conf2 = _MyConfig2("test_get_from_environ02")
         os.environ[conf2.param_to_env_name("conf2Int")] = "10"
         self.assertEqual(conf2["conf2Int"], 10)
+
+    def test_get_from_environ2(self):
+        from configfile.configbase import ConfigBase
+
+        class _MyConfig1(ConfigBase):
+            def set_parameters(self):
+                self.conf1Int = 1
+                self.conf1Str = "1"
+
+        conf = _MyConfig1("test_get_from_environ11")
+        os.environ[conf.param_to_env_name("conf1Int")] = "10"
+        self.assertEqual(conf["conf1Int"], 10)
+
+        class _MyConfig2(ConfigBase):
+            def set_parameters(self):
+                self.conf2Int = 2
+                self._add_params_from_other_config(conf)
+
+        conf2 = _MyConfig2("test_get_from_environ12")
+
+        os.environ[conf2.param_to_env_name("conf2Int")] = "10"
+        self.assertEqual(conf2["conf2Int"], 10)
+
+        os.environ[conf.param_to_env_name("conf1Str")] = '"hola"'
+        self.assertEqual(conf2.test_get_from_environ11__conf1Str, "hola")
+        self.assertEqual(conf.conf1Str, "hola")
 
 
     def test_load_yml(self):
@@ -80,7 +107,9 @@ class TestConfig(TestCase):
 
     def test_update(self):
         from tests._configExample import MyConfig2
-        conf = MyConfig2("test_update")
+        class _MyConfig2(MyConfig2): pass
+        conf = _MyConfig2("test_update")
+        print(conf)
         conf.update(dict(conf2Int=-1, conf2List=[-1, -5]))
         self.assertEqual(conf["conf2Int"], -1)
         self.assertEqual(conf["conf2List"], [-1, -5])
@@ -156,13 +185,16 @@ class TestConfig(TestCase):
         self.assertAlmostEqual(sum(pars.test_argparse_with_inheritance2__conf2List), sum([3, 82]))
 
     def test_inheritance0(self):
-        from tests._configExample import MyConfig2
         from configfile import ConfigBase
-        class _MyConfig2(MyConfig2):
-            pass
+        class _MyConfig2(ConfigBase):
+            def set_parameters(self):
+                self.conf2Int = 2
+                self.conf2Str = "tua"
+                self.conf2List: Optional[List[int]] = None
+
         conf2 = _MyConfig2("test_inheritance02")
-        print(conf2.conf2Int)
-        print(conf2.conf2Str)
+        # print(conf2.conf2Int)
+        # print(conf2.conf2Str)
 
         class MyConf3(ConfigBase):
             def set_parameters(self):
@@ -171,8 +203,9 @@ class TestConfig(TestCase):
                 self._add_params_from_other_config(conf2)
 
         conf3 = MyConf3("test_inheritance03")
-        self.assertTrue(conf3.conf3Str == "3")
+        print(conf3.all_parameters_dict)
         self.assertTrue(conf3.test_inheritance02__conf2Str == "tua")
+        self.assertTrue(conf3.conf3Str == "3")
 
     def test_inheritance1(self):
         from tests._configExample import MyConfig1

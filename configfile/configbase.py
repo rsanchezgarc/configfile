@@ -5,7 +5,6 @@ import json
 import multiprocessing
 import os
 from abc import abstractmethod
-from functools import partial
 from typing import Optional, Dict, Any, List
 
 from configfile.envVarUtils import param_to_env_name, env_to_param_name, serialize_param_to_envvar, \
@@ -20,39 +19,46 @@ from configfile.exceptions import ConfigErrorFromEnv, ConfigErrorParamNotDefined
 from configfile.utils import AbstractSingleton
 
 
-
-
 class ConfigBase(metaclass=AbstractSingleton):
     PROJECT_NAME = ""
-    VALID_TYPES = ALLOWED_TYPES #TODO: Enforce type checking
+    VALID_TYPES = ALLOWED_TYPES  # TODO: Enforce type checking
 
-    def __init__(self, name:str=None, config_file:Optional[str]=None):
+    def __init__(self, name: str = None, config_file: Optional[str] = None):
 
         if name == None:
             name = type(self).__name__
         self.name = name
+        self._private_vars = {}
 
         env_vars = os.environ.copy()
-        self._storage = MultiStorage(name=name, fallbackStorageClassName="EnvVarsStorage") #"EnvVarsStorage" is required to overwrite values from envvars
-
+        self._storage = MultiStorage(name=name,
+                                     fallbackStorageClassName="EnvVarsStorage")  # "EnvVarsStorage" is required to overwrite values from envvars
 
         # self.config_classes_classPrefix = [(type(self), "")] #By default, the main Config has no prefix
-        self.config_classname_2_annotations_prefix = {self.name:(get_annotations_from_function(self.set_parameters),"")} #By default, the main Config has no prefix
+        self.config_classname_2_annotations_prefix = {self.name: (
+        get_annotations_from_function(self.set_parameters), "")}  # By default, the main Config has no prefix
 
-
-        self.env_var_prefix = param_to_env_name(self.PROJECT_NAME+self.name, PREFIX_ENV_SEP, "")
-        self._adding_params_flag = False # A flag that switches from default setattr to store into _storage
+        self.env_var_prefix = param_to_env_name(self.PROJECT_NAME + self.name, PREFIX_ENV_SEP, "")
+        self._adding_params_flag = False  # A flag that switches from default setattr to store into _storage
         self.initialize_params()
         self._initialized = True
 
         if config_file is not None:
             assert self.DEFAULT_YML_ENVVARNAME not in os.environ, "Error, config_file yaml was provided in the builder and as environmental variable"
             self.override_with_yaml(config_file)
-        elif  self.DEFAULT_YML_ENVVARNAME in os.environ:
+        elif self.DEFAULT_YML_ENVVARNAME in os.environ:
             self.override_with_yaml(os.environ[self.DEFAULT_YML_ENVVARNAME])
 
         self.override_with_env_vars(env_vars)
 
+    def _store_private(self, k, v):
+        """
+        To be used to store things during self.set_paramenters, but that do not want to be stored as part of config
+        :param k:
+        :param v:
+        :return:
+        """
+        self._private_vars[k] = v
 
     @property
     def all_parameters_dict(self):
@@ -60,10 +66,10 @@ class ConfigBase(metaclass=AbstractSingleton):
 
     @property
     def DEFAULT_YML_ENVVARNAME(self):
-        return self.PROJECT_NAME+self.name+"_conf.yaml"
+        return self.PROJECT_NAME + self.name + "_conf.yaml"
 
     def param_to_env_name(self, k):
-        return param_to_env_name(self.PROJECT_NAME+self.name, PREFIX_ENV_SEP, k)
+        return param_to_env_name(self.PROJECT_NAME + self.name, PREFIX_ENV_SEP, k)
 
     def initialize_params(self):
         with multiprocessing.Lock():
@@ -80,7 +86,7 @@ class ConfigBase(metaclass=AbstractSingleton):
             if key not in self._storage.keys():
                 raise ConfigErrorParamNotDefined(f"Error, {key} parameter from yaml file {config_file} has not been "
                                                  f"previously defined in set_parameters")
-            #TODO: Do type checking
+            # TODO: Do type checking
             # _type = get_annotations_from_value(val)
             # if _type != self.attr_2_type[key]:
             #     raise ConfigErrorParamTypeMismatch(f"Error, {key} parameter from yaml file {config_file} has "
@@ -88,66 +94,71 @@ class ConfigBase(metaclass=AbstractSingleton):
             #                                        f"set_parameters, {type(val), self.attr_2_type[key]}")
             self._storage.put(key, val)
 
-
     def override_with_env_vars(self, env_vars=None):
         if env_vars is None:
             env_vars = os.environ.copy()
-        for k,v in env_vars.items():
+        for k, v in env_vars.items():
             if k.startswith(self.env_var_prefix):
                 varname = env_to_param_name(k, PREFIX_ENV_SEP)
                 if varname not in self._storage.keys():
-                    raise ConfigErrorParamNotDefined(f"Error, {k} variable, found as environmental variable has not been previously defined")
-                #TODO: check type
+                    raise ConfigErrorParamNotDefined(
+                        f"Error, {k} variable, found as environmental variable has not been previously defined")
+                # TODO: check type
                 v = load_envvar_to_param(v)
                 self._storage.put(varname, v)
 
-    def update(self, params_dict:Dict[str,Any]):
+    def update(self, params_dict: Dict[str, Any]):
         for key, val in params_dict.items():
             if key in self._storage.keys():
                 self._storage.put(key, val)
             else:
-                raise ConfigErrorParamTypeMismatch(f"Error, {key} parameter in the dictionary {params_dict} is not difined in the default parameters")
+                raise ConfigErrorParamTypeMismatch(
+                    f"Error, {key} parameter in the dictionary {params_dict} is not difined in the default parameters")
 
     def add_args_to_argparse(self, parser):
 
         annotations = self._get_annotations_from_function()
         # all_params = flatDict(self.all_parameters_dict, sep=NESTED_SEPARATOR)
         all_params = self.all_parameters_dict
-        for k,v in all_params.items():
+        for k, v in all_params.items():
             if v is None:
                 assert k in annotations, f"Error, argument {k} is None, but has no type hint in config"
                 _type = annotations[k]["dtype"]
                 type_name = _type.__name__
                 if annotations[k]["isDict"]:
-                    parser.add_argument("--" + k, help="A dictionary to be provided as json string", action=ParseJsonAction)
+                    parser.add_argument("--" + k, help="A dictionary to be provided as json string",
+                                        action=ParseJsonAction)
                     continue
                 assert not annotations[k]["isDict"], "Not implemented yet"
                 nargs = "+" if annotations[k]["isList"] else None
 
             elif isinstance(v, (list, tuple)):
-                nargs="+"
+                nargs = "+"
                 types = [type(x) for x in v]
                 types_names = set()
                 for t in types:
-                    assert t in ALLOWED_TYPES, f"Error, only _type {ALLOWED_TYPES} are allowed. Got {k,v, t}"
+                    assert t in ALLOWED_TYPES, f"Error, only _type {ALLOWED_TYPES} are allowed. Got {k, v, t}"
                     types_names.add(t.__name__)
-                assert len(types_names) == 1, f"Error, only homogeneous lists are allowed {k,v, types_names}"
+                assert len(types_names) == 1, f"Error, only homogeneous lists are allowed {k, v, types_names}"
                 _type = types[0]
                 type_name = types_names.pop()
 
-            elif isinstance(v, (dict)): # We are using flatten instead of json option
-                    parser.add_argument("--" + k, help="A dictionary to be provided as json string",
-                                        action=ParseJsonAction)
-                    continue
+            elif isinstance(v, (dict)):  # We are using flatten instead of json option
+                parser.add_argument("--" + k, help=f"A dictionary to be provided as json string. Default: {v}",
+                                    action=ParseJsonAction, default=v)
+                continue
             else:
-                nargs=None
+                nargs = None
                 _type = type(v)
-                assert _type in ALLOWED_TYPES, f"Error, only _type {ALLOWED_TYPES} are allowed. Got {k,v, _type}"
+                assert _type in ALLOWED_TYPES, f"Error, only _type {ALLOWED_TYPES} are allowed. Got {k, v, _type}"
                 type_name = _type.__name__
 
             if k in annotations:
+                an_type = annotations[k]
+                if an_type is None:
+                    continue
                 assert _type == annotations[k]["dtype"], f"Error, mismatch between type hint and set value " \
-                                                            f"{k, _type,  annotations[v]['type']}"
+                                                         f"{k, _type, annotations[k]['type']}"
 
             help = f" {type_name}. Default={v}"
             if _type == bool:
@@ -164,24 +175,23 @@ class ConfigBase(metaclass=AbstractSingleton):
                 parser.add_argument(f"--{k}", type=_type, default=v, nargs=nargs, help=help)
         return parser
 
-
     def _add_params_from_other_config(self, config):
         assert isinstance(config, ConfigBase), "Error, config is not of class ConfigBase"
         assert inspect.stack()[1].function == "set_parameters"
         # self.config_classes_classPrefix.append((type(config), config.name+NESTED_SEPARATOR) )
         self.config_classname_2_annotations_prefix[config.name] = (get_annotations_from_function(config.set_parameters),
-                                                                   config.name+NESTED_SEPARATOR)
+                                                                   config.name + NESTED_SEPARATOR)
         self._storage.addStorage(config._storage)
         return dict(config.all_parameters_dict.copy())
 
-
     def _get_annotations_from_function(self):
-        annotated_types= {}
+        annotated_types = {}
         # for cls in self.__class__.mro():
         # for cls, prefix in self.config_classes_classPrefix:
         for _annot, prefix in self.config_classname_2_annotations_prefix.values():
-            _annot = {prefix+k:v for k,v in _annot.items()}
-            annotated_types.update(_annot)
+            if _annot:
+                _annot = {prefix + k: v for k, v in _annot.items()}
+                annotated_types.update(_annot)
         return annotated_types
 
     @abstractmethod
@@ -219,7 +229,8 @@ class ConfigBase(metaclass=AbstractSingleton):
             try:
                 return self.__dict__[key]
             except KeyError:
-                raise AttributeError(f"Error, attribute {key} not found in {self}")
+                name = self.__dict__.get("name", "")
+                raise AttributeError(f"Error, attribute {key} not found in config {name}")
 
     def __getitem__(self, key):
         return getattr(self, key)

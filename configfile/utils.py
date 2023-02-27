@@ -57,6 +57,28 @@ class AnnotationsCollector(ast.NodeVisitor):
     def __init__(self):
         self.annotations = {}
 
+        self.variables = set()
+        self.attributes = set()
+
+    def visit_FunctionDef(self, node):
+        for arg in node.args.args:
+            if arg.arg != 'self':
+                self.variables.add(arg.arg)
+        self.generic_visit(node)
+
+    def visit_Assign(self, node):
+        if isinstance(node.targets[0], ast.Name):
+            if isinstance(node.targets[0].ctx, ast.Store):
+                if node.targets[0].id == 'self':
+                    if isinstance(node.value, (ast.Name, ast.Attribute)):
+                        self.attributes.add(node.targets[0].id)
+                else:
+                    self.variables.add(node.targets[0].id)
+
+        elif isinstance(node.targets[0], ast.Attribute):
+            if isinstance(node.targets[0].value, ast.Name) and node.targets[0].value.id == 'self':
+                self.attributes.add(node.targets[0].attr)
+
 
     def get_anno(self, anno):
         isDict = False
@@ -119,8 +141,11 @@ def get_annotations_from_function(func):
     assert mod.body and isinstance(mod.body[0], (ast.FunctionDef, ast.AsyncFunctionDef))
     collector = AnnotationsCollector()
     collector.visit(mod.body[0])
-
-    return collector.annotations
+    annota = collector.annotations
+    for k in collector.attributes:
+        if k not in annota:
+            annota[k]=None
+    return annota
 
 
 def get_annotations_from_value(value): #TODO: Add homogeneus dictionary compability
@@ -157,29 +182,4 @@ class ParseJsonAction(argparse.Action):
             setattr(namespace, self.dest, json.loads(values))
         except ValueError as e:
             raise argparse.ArgumentError(self, f"Invalid JSON string: {e}")
-
-
-# def typeName2Builder(typeName, isInputStr=False):
-#
-#     if typeName in ALLOWED_TYPE_NAMES:
-#         return ALLOWED_TYPES[ALLOWED_TYPE_NAMES.index(typeName)]
-#     elif typeName.startswith("List") or typeName.startswith("Tuple"):
-#         _typename= re.match(VALID_ANNOTATION_LIST_REGEX_PATT, typeName)
-#         assert _typename, f"Error, Not valid typeString, {typeName}"
-#         _typename = _typename.group(2)
-#         if isInputStr:
-#             prepro = lambda x: ast.literal_eval(x)
-#         else:
-#             prepro = lambda x: x
-#         return lambda val: [typeName2Builder(_typename)(x) for x in prepro(val)]
-
-# def _test_typeName2Builder():
-#     typer = typeName2Builder("List[str]")
-#     out = typer([1,2,3])
-#     assert  out == ['1', '2', '3']
-#     typer = typeName2Builder("List[int]", isInputStr=True)
-#     out = typer('[0, 1, 2, 3]')
-#     assert out == [0, 1, 2, 3]
-
-# _test_typeName2Builder()
 

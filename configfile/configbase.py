@@ -223,7 +223,7 @@ class ConfigBase(metaclass=AbstractSingleton):
 
     def __getattr__(self, key):
 
-        if "_initialized" in self.__dict__ and self._initialized:
+        if "_initialized" in self.__dict__ and self._initialized and key !="__getstate__":
             return self._get_from_storages(key)
         else:
             try:

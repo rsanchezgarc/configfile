@@ -1,3 +1,4 @@
+import multiprocessing
 import os
 import subprocess
 import sys
@@ -447,6 +448,23 @@ class TestConfig(TestCase):
         self.assertEqual(pars.conf_dict, {"a":1})
         conf.update(vars(pars))
         self.assertEqual(conf.conf_dict, {"a":1})
+
+    def test_cloudpicle(self):
+        from configfile.configbase import ConfigBase
+
+        class MyConfig(ConfigBase):
+
+            def set_parameters(self):
+                self.conf_dict = {"key1":1, "key2":2}
+        config = MyConfig
+        import cloudpickle
+        c = cloudpickle.dumps(config) #TODO: only for debug
+        def other():
+            c = cloudpickle.dumps(config)  # TODO: only for debug
+        other()
+        p = multiprocessing.Process(target=other)
+        p.start()
+        p.join()
 
 def _func():
     from tests._configExample_test_mlp3 import conf

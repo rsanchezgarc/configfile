@@ -14,7 +14,7 @@ class MyConfig1(ConfigBase):
 class MyConfig2(ConfigBase):
 
     def set_parameters(self):
-        self.conf2Int = 2
+        self.conf2Int:int = 2
         self.conf2Str = "tua"
         self.conf2List:Optional[List[int]] = None
 

@@ -3,6 +3,7 @@ import inspect
 import json
 import multiprocessing
 import os
+import warnings
 from abc import abstractmethod
 from functools import partial
 from typing import Optional, Dict, Any, List
@@ -161,9 +162,10 @@ class ConfigBase(metaclass=AbstractSingleton):
             if k in annotations:
                 an_type = annotations[k]
                 if an_type is None:
-                    raise ValueError(
+                    warnings.warn(
                         f"Type annotation is not present for {k}. We cannot know if new value is compatible")
-                assert _type == annotations[k]["dtype"], f"Error, mismatch between type hint and set value " \
+                else:
+                    assert _type == annotations[k]["dtype"], f"Error, mismatch between type hint and set value " \
                                                          f"{k, _type, annotations[k]['type']}"
 
             help = f" {type_name}. Default={v}"

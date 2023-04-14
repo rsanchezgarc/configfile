@@ -166,7 +166,7 @@ class TestConfig(TestCase):
         class MyConf3(ConfigBase):
             def set_parameters(self):
                 self.conf3Int: int = 3
-                self.conf3Str = "3"
+                self.conf3Str:str = "3"
                 self.conf3Not: Optional[str] = None
                 self._add_params_from_other_config(conf2)
 
@@ -194,8 +194,8 @@ class TestConfig(TestCase):
         class _MyConfig2(ConfigBase):
             PROJECT_NAME="PROJ_"
             def set_parameters(self):
-                self.conf2Int = 2
-                self.conf2Str = "tua"
+                self.conf2Int:int = 2
+                self.conf2Str:str = "tua"
                 self.conf2List: Optional[List[int]] = None
 
         conf2 = _MyConfig2("test_argparse_with_inheritance20")

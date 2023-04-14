@@ -1,18 +1,18 @@
 # configfile
-import collections
 import inspect
 import json
 import multiprocessing
 import os
 from abc import abstractmethod
+from functools import partial
 from typing import Optional, Dict, Any, List
 
-from configfile.envVarUtils import param_to_env_name, env_to_param_name, serialize_param_to_envvar, \
-    load_envvar_to_param, load_envvar
+from configfile.envVarUtils import param_to_env_name, env_to_param_name, \
+    load_envvar_to_param
 from configfile.storages import EnvVarsStorage, MultiStorage
 from configfile.utils import get_annotations_from_function, get_annotations_from_value, typeBuilder, flatDict, \
     ParseJsonAction
-from configfile.constants import ALLOWED_TYPES, ALLOWED_TYPE_NAMES, PREFIX_ENV_SEP, NESTED_SEPARATOR
+from configfile.constants import ALLOWED_TYPES, PREFIX_ENV_SEP, NESTED_SEPARATOR
 
 import yaml
 from configfile.exceptions import ConfigErrorFromEnv, ConfigErrorParamNotDefined, ConfigErrorParamTypeMismatch
@@ -22,7 +22,8 @@ from configfile.utils import AbstractSingleton
 class ConfigBase(metaclass=AbstractSingleton):
     PROJECT_NAME = ""
     VALID_TYPES = ALLOWED_TYPES  # TODO: Enforce type checking
-
+    NESTED_SEPARATOR = NESTED_SEPARATOR
+    PREFIX_ENV_SEP = PREFIX_ENV_SEP
     def __init__(self, name: str = None, config_file: Optional[str] = None):
 
         if name == None:
@@ -38,7 +39,7 @@ class ConfigBase(metaclass=AbstractSingleton):
         self.config_classname_2_annotations_prefix = {self.name: (
         get_annotations_from_function(self.set_parameters), "")}  # By default, the main Config has no prefix
 
-        self.env_var_prefix = param_to_env_name(self.PROJECT_NAME + self.name, PREFIX_ENV_SEP, "")
+        self.env_var_prefix = param_to_env_name(self.PROJECT_NAME + self.name, self.PREFIX_ENV_SEP, "")
         self._adding_params_flag = False  # A flag that switches from default setattr to store into _storage
         self.initialize_params()
         self._initialized = True
@@ -69,7 +70,7 @@ class ConfigBase(metaclass=AbstractSingleton):
         return self.PROJECT_NAME + self.name + "_conf.yaml"
 
     def param_to_env_name(self, k):
-        return param_to_env_name(self.PROJECT_NAME + self.name, PREFIX_ENV_SEP, k)
+        return param_to_env_name(self.PROJECT_NAME + self.name, self.PREFIX_ENV_SEP, k)
 
     def initialize_params(self):
         with multiprocessing.Lock():
@@ -99,7 +100,7 @@ class ConfigBase(metaclass=AbstractSingleton):
             env_vars = os.environ.copy()
         for k, v in env_vars.items():
             if k.startswith(self.env_var_prefix):
-                varname = env_to_param_name(k, PREFIX_ENV_SEP)
+                varname = env_to_param_name(k, self.PREFIX_ENV_SEP)
                 if varname not in self._storage.keys():
                     raise ConfigErrorParamNotDefined(
                         f"Error, {k} variable, found as environmental variable has not been previously defined")
@@ -115,12 +116,16 @@ class ConfigBase(metaclass=AbstractSingleton):
                 raise ConfigErrorParamTypeMismatch(
                     f"Error, {key} parameter in the dictionary {params_dict} is not difined in the default parameters")
 
-    def add_args_to_argparse(self, parser):
+    def add_args_to_argparse(self, parser, include_only=None):
 
         annotations = self._get_annotations_from_function()
-        # all_params = flatDict(self.all_parameters_dict, sep=NESTED_SEPARATOR)
+        # all_params = flatDict(self.all_parameters_dict, sep=self.NESTED_SEPARATOR)
         all_params = self.all_parameters_dict
+        if include_only is None:
+            include_only = set(all_params.keys())
         for k, v in all_params.items():
+            if k not in include_only:
+                continue
             if v is None:
                 assert k in annotations, f"Error, argument {k} is None, but has no type hint in config"
                 _type = annotations[k]["dtype"]
@@ -156,7 +161,8 @@ class ConfigBase(metaclass=AbstractSingleton):
             if k in annotations:
                 an_type = annotations[k]
                 if an_type is None:
-                    continue
+                    raise ValueError(
+                        f"Type annotation is not present for {k}. We cannot know if new value is compatible")
                 assert _type == annotations[k]["dtype"], f"Error, mismatch between type hint and set value " \
                                                          f"{k, _type, annotations[k]['type']}"
 
@@ -178,9 +184,9 @@ class ConfigBase(metaclass=AbstractSingleton):
     def _add_params_from_other_config(self, config):
         assert isinstance(config, ConfigBase), "Error, config is not of class ConfigBase"
         assert inspect.stack()[1].function == "set_parameters"
-        # self.config_classes_classPrefix.append((type(config), config.name+NESTED_SEPARATOR) )
+        # self.config_classes_classPrefix.append((type(config), config.name+self.NESTED_SEPARATOR) )
         self.config_classname_2_annotations_prefix[config.name] = (get_annotations_from_function(config.set_parameters),
-                                                                   config.name + NESTED_SEPARATOR)
+                                                                   config.name + self.NESTED_SEPARATOR)
         self._storage.addStorage(config._storage)
         return dict(config.all_parameters_dict.copy())
 
@@ -223,7 +229,7 @@ class ConfigBase(metaclass=AbstractSingleton):
 
     def __getattr__(self, key):
 
-        if "_initialized" in self.__dict__ and self._initialized and key !="__getstate__":
+        if "_initialized" in self.__dict__ and self._initialized and key != "__getstate__":
             return self._get_from_storages(key)
         else:
             try:
@@ -242,4 +248,3 @@ class ConfigBase(metaclass=AbstractSingleton):
         if "_initialized" in self.__dict__ and self._initialized:
             return str(self.all_parameters_dict)
         return super().__str__()
-

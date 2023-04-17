@@ -106,12 +106,12 @@ AVAILABLE_SIMPLE_STORAGES={"EnvVarsStorage":EnvVarsStorage}
 
 class MultiStorage(BaseStorage):
     def __init__(self, name:str,
-                 fallbackStorageClassName:str= DEFAULT_SIMPLE_STORAGENAME,
+                 fallbackStorageClassName:str= DEFAULT_SIMPLE_STORAGENAME, fallbackStorageKwargs={},
                  extraStorages:Optional[List[BaseStorage]]=None):
 
         super().__init__(name)
 
-        self.fallbackStorage = AVAILABLE_SIMPLE_STORAGES[fallbackStorageClassName](name=name)
+        self.fallbackStorage = AVAILABLE_SIMPLE_STORAGES[fallbackStorageClassName](name=name, **fallbackStorageKwargs)
 
         self.storages = {}
         if extraStorages:

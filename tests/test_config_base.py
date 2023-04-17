@@ -96,6 +96,43 @@ class TestConfig(TestCase):
         self.assertEqual(conf2.test_get_from_environ11__conf1Str, "hola")
         self.assertEqual(conf.conf1Str, "hola")
 
+    def test_init_with_environ(self):
+        from configfile.configbase import ConfigBase
+        project_name = "test_init_with_environ"
+        os.environ["%s%s%s%s" % (project_name, "_InitWithEnvironConf", ConfigBase.PREFIX_ENV_SEP, "conf1Str")] = '"kk"'
+        class _InitWithEnvironConf(ConfigBase):
+            PROJECT_NAME=project_name
+            def set_parameters(self):
+                self.conf1Int = 1
+                self.conf1Str = "1"
+        conf = _InitWithEnvironConf()
+        self.assertEqual(conf.conf1Str, "kk")
+
+    def test_init_with_environ2(self):
+        from configfile.configbase import ConfigBase
+        project_name = "testInitWithEnvir2"
+        os.environ["%s%s%s%s" % (project_name, "Env2First", ConfigBase.PREFIX_ENV_SEP,
+                                 # ConfigBase.NESTED_SEPARATOR,
+                                 "conf2Str")] = '"kk"'
+
+        class Env2First(ConfigBase):
+            PROJECT_NAME=project_name
+            def set_parameters(self):
+                self.conf2Int = 2
+                self.conf2Str = "2"
+
+        confprev = Env2First()
+
+        class Env2Second(ConfigBase):
+            PROJECT_NAME=project_name
+            def set_parameters(self):
+                self.conf1Int = 1
+                self.conf1Str = "1"
+                self._add_params_from_other_config(confprev)
+        conf = Env2Second()
+
+
+        self.assertEqual(conf.Env2First__conf2Str, "kk")
 
     def test_load_yml(self):
         from tests._configExample import MyConfig2

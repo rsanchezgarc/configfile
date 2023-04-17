@@ -30,17 +30,18 @@ class ConfigBase(metaclass=AbstractSingleton):
         if name == None:
             name = type(self).__name__
         self.name = name
+        self.fullName = self.PROJECT_NAME + self.name
         self._private_vars = {}
 
         env_vars = os.environ.copy()
-        self._storage = MultiStorage(name=name,
-                                     fallbackStorageClassName="EnvVarsStorage")  # "EnvVarsStorage" is required to overwrite values from envvars
+        self._storage = MultiStorage(name=self.name, fallbackStorageClassName="EnvVarsStorage",
+                                     fallbackStorageKwargs={"envNamePrefix":self.fullName}) # "EnvVarsStorage" is required to overwrite values from envvars
 
         # self.config_classes_classPrefix = [(type(self), "")] #By default, the main Config has no prefix
         self.config_classname_2_annotations_prefix = {self.name: (
         get_annotations_from_function(self.set_parameters), "")}  # By default, the main Config has no prefix
 
-        self.env_var_prefix = param_to_env_name(self.PROJECT_NAME + self.name, self.PREFIX_ENV_SEP, "")
+        self.env_var_prefix = param_to_env_name(self.fullName, self.PREFIX_ENV_SEP, "")
         self._adding_params_flag = False  # A flag that switches from default setattr to store into _storage
         self.initialize_params()
         self._initialized = True
@@ -68,10 +69,10 @@ class ConfigBase(metaclass=AbstractSingleton):
 
     @property
     def DEFAULT_YML_ENVVARNAME(self):
-        return self.PROJECT_NAME + self.name + "_conf.yaml"
+        return self.fullName + "_conf.yaml"
 
     def param_to_env_name(self, k):
-        return param_to_env_name(self.PROJECT_NAME + self.name, self.PREFIX_ENV_SEP, k)
+        return param_to_env_name(self.fullName, self.PREFIX_ENV_SEP, k)
 
     def initialize_params(self):
         with multiprocessing.Lock():

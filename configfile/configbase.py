@@ -167,7 +167,7 @@ class ConfigBase(metaclass=AbstractSingleton):
                         f"Type annotation is not present for {k}. We cannot know if new value is compatible")
                 else:
                     assert _type == annotations[k]["dtype"], f"Error, mismatch between type hint and set value " \
-                                                         f"{k, _type, annotations[k]['type']}"
+                                                         f"{k, _type, annotations[k]['dtype']}"
 
             help = f" {type_name}. Default={v}"
             if _type == bool:

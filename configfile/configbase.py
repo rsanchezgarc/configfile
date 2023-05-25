@@ -83,19 +83,20 @@ class ConfigBase(metaclass=AbstractSingleton):
     def override_with_yaml(self, config_file):
         with open(config_file, "r") as f:
             yaml_data = yaml.safe_load(f)
-        for attrdict in yaml_data["parameters"]:
-            key = list(attrdict.keys())[0]
-            val = list(attrdict.values())[0]
-            if key not in self._storage.keys():
-                raise ConfigErrorParamNotDefined(f"Error, {key} parameter from yaml file {config_file} has not been "
-                                                 f"previously defined in set_parameters")
-            # TODO: Do type checking
-            # _type = get_annotations_from_value(val)
-            # if _type != self.attr_2_type[key]:
-            #     raise ConfigErrorParamTypeMismatch(f"Error, {key} parameter from yaml file {config_file} has "
-            #                                        f"incompatible type with respect what was defined in "
-            #                                        f"set_parameters, {type(val), self.attr_2_type[key]}")
-            self._storage.put(key, val)
+        for attrdict in yaml_data.values():
+            # key = list(attrdict.keys())[0]
+            # val = list(attrdict.values())[0]
+            for key, val in attrdict.items():
+                if key not in self._storage.keys():
+                    raise ConfigErrorParamNotDefined(f"Error, {key} parameter from yaml file {config_file} has not been "
+                                                     f"previously defined in set_parameters")
+                # TODO: Do type checking
+                # _type = get_annotations_from_value(val)
+                # if _type != self.attr_2_type[key]:
+                #     raise ConfigErrorParamTypeMismatch(f"Error, {key} parameter from yaml file {config_file} has "
+                #                                        f"incompatible type with respect what was defined in "
+                #                                        f"set_parameters, {type(val), self.attr_2_type[key]}")
+                self._storage.put(key, val)
 
     def override_with_env_vars(self, env_vars=None):
         if env_vars is None:

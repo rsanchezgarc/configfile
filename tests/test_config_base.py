@@ -136,8 +136,8 @@ class TestConfig(TestCase):
 
     def test_load_yml(self):
         from tests._configExample import MyConfig2
-        class _MyConfig2(MyConfig2): pass
-        conf = _MyConfig2(name="test_load_yml",
+        class _MyConfig2test_load_yml(MyConfig2): pass
+        conf = _MyConfig2test_load_yml(name="test_load_yml",
                           config_file=os.path.join(os.path.dirname(__file__),"data/myconfig2.yaml"))
         # print(conf.all_parameters_dict)
         self.assertEqual(conf["conf2Str"], "test_myconfig2")
